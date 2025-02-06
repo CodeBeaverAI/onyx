@@ -10,7 +10,6 @@ from tenacity import RetryError
 
 from onyx.access.access import get_access_for_document
 from onyx.background.celery.apps.app_base import task_logger
-from onyx.background.celery.apps.app_base import TenantAwareTask
 from onyx.background.celery.tasks.beat_schedule import BEAT_EXPIRES_DEFAULT
 from onyx.background.celery.tasks.shared.RetryDocumentIndex import RetryDocumentIndex
 from onyx.configs.constants import CELERY_GENERIC_BEAT_LOCK_TIMEOUT
@@ -226,7 +225,6 @@ def document_by_cc_pair_cleanup_task(
     ignore_result=True,
     trail=False,
     bind=True,
-    base=TenantAwareTask,
 )
 def cloud_beat_task_generator(
     self: Task,

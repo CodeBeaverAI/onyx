@@ -124,6 +124,7 @@ class DynamicTenantScheduler(PersistentScheduler):
 
         tenant_ids = get_all_tenant_ids()
         logger.info(f"Found {len(tenant_ids)} IDs")
+        logger.info(f"TENANT IDS, {tenant_ids}")
 
         # get current schedule and extract current tenants
         current_schedule = self.schedule.items()

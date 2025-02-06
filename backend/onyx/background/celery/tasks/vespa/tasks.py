@@ -95,6 +95,7 @@ from onyx.utils.variable_functionality import (
 from onyx.utils.variable_functionality import global_version
 from onyx.utils.variable_functionality import noop_fallback
 from shared_configs.configs import MULTI_TENANT
+from shared_configs.contextvars import CURRENT_TENANT_ID_CONTEXTVAR
 
 logger = setup_logger()
 
@@ -975,8 +976,11 @@ def monitor_vespa_sync(self: Task, *, tenant_id: str | None) -> bool | None:
     max_retries=3,
 )
 def vespa_metadata_sync_task(
-    self: Task, document_id: str, tenant_id: str | None
+    self: Task, document_id: str, *, tenant_id: str | None
 ) -> bool:
+    print(f"TENANT ID, {tenant_id}")
+    print("FROM CONTEXT VAR", CURRENT_TENANT_ID_CONTEXTVAR.get())
+
     start = time.monotonic()
 
     try:

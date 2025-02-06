@@ -56,6 +56,7 @@ from shared_configs.configs import INDEXING_MODEL_SERVER_HOST
 from shared_configs.configs import INDEXING_MODEL_SERVER_PORT
 from shared_configs.configs import MULTI_TENANT
 from shared_configs.configs import SENTRY_DSN
+from shared_configs.contextvars import CURRENT_TENANT_ID_CONTEXTVAR
 
 logger = setup_logger()
 
@@ -68,6 +69,9 @@ logger = setup_logger()
 def check_for_indexing(self: Task, *, tenant_id: str | None) -> int | None:
     """a lightweight task used to kick off indexing tasks.
     Occcasionally does some validation of existing state to clear up error conditions"""
+    print(f"TENANT ID, {tenant_id}")
+    print("FROM CONTEXT VAR", CURRENT_TENANT_ID_CONTEXTVAR.get())
+
     time_start = time.monotonic()
 
     tasks_created = 0
