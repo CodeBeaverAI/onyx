@@ -251,6 +251,7 @@ export interface ChannelConfig {
   respond_member_group_list?: string[];
   answer_filters?: AnswerFilterOption[];
   follow_up_tags?: string[];
+  disabled?: boolean;
 }
 
 export type SlackBotResponseType = "quotes" | "citations";
