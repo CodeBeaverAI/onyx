@@ -173,7 +173,7 @@ def _run_indexing(
     TODO: do not change index attempt statuses here ... instead, set signals in redis
     and allow the monitor function to clean them up
     """
-    start_time = time.time()
+    start_time = time.monotonic()
 
     with get_session_with_tenant(tenant_id) as db_session_temp:
         index_attempt_start = get_index_attempt(db_session_temp, index_attempt_id)
@@ -420,7 +420,7 @@ def _run_indexing(
                     )
         except Exception as e:
             logger.exception(
-                f"Connector run exceptioned after elapsed time: {time.time() - start_time} seconds"
+                f"Connector run exceptioned after elapsed time: {time.monotonic() - start_time} seconds"
             )
 
             if isinstance(e, ConnectorStopSignal):
@@ -513,7 +513,7 @@ def _run_indexing(
                 f"Connector failed - All batches exceptioned: batches={batch_num}"
             )
 
-    elapsed_time = time.time() - start_time
+    elapsed_time = time.monotonic() - start_time
 
     with get_session_with_tenant(tenant_id) as db_session_temp:
         if index_attempt_md.num_exceptions == 0:
@@ -558,46 +558,44 @@ def run_indexing_entrypoint(
     is_ee: bool = False,
     callback: IndexingHeartbeatInterface | None = None,
 ) -> None:
-    try:
-        if is_ee:
-            global_version.set_ee()
+    """We want exceptions from _run_indexing to propagate up to the caller directly.
+    Don't swallow them here."""
+    if is_ee:
+        global_version.set_ee()
 
-        # set the indexing attempt ID so that all log messages from this process
-        # will have it added as a prefix
-        TaskAttemptSingleton.set_cc_and_index_id(
-            index_attempt_id, connector_credential_pair_id
+    # set the indexing attempt ID so that all log messages from this process
+    # will have it added as a prefix
+    TaskAttemptSingleton.set_cc_and_index_id(
+        index_attempt_id, connector_credential_pair_id
+    )
+
+    with get_session_with_tenant(tenant_id) as db_session:
+        # TODO: remove long running session entirely
+        attempt = transition_attempt_to_in_progress(index_attempt_id, db_session)
+
+        tenant_str = ""
+        if tenant_id is not None:
+            tenant_str = f" for tenant {tenant_id}"
+
+        connector_name = attempt.connector_credential_pair.connector.name
+        connector_config = (
+            attempt.connector_credential_pair.connector.connector_specific_config
         )
-        with get_session_with_tenant(tenant_id) as db_session:
-            # TODO: remove long running session entirely
-            attempt = transition_attempt_to_in_progress(index_attempt_id, db_session)
+        credential_id = attempt.connector_credential_pair.credential_id
 
-            tenant_str = ""
-            if tenant_id is not None:
-                tenant_str = f" for tenant {tenant_id}"
+    logger.info(
+        f"Indexing entrypoint starting{tenant_str}: "
+        f"connector='{connector_name}' "
+        f"config='{connector_config}' "
+        f"credentials='{credential_id}'"
+    )
 
-            connector_name = attempt.connector_credential_pair.connector.name
-            connector_config = (
-                attempt.connector_credential_pair.connector.connector_specific_config
-            )
-            credential_id = attempt.connector_credential_pair.credential_id
+    with get_session_with_tenant(tenant_id) as db_session:
+        _run_indexing(db_session, index_attempt_id, tenant_id, callback)
 
-        logger.info(
-            f"Indexing starting{tenant_str}: "
-            f"connector='{connector_name}' "
-            f"config='{connector_config}' "
-            f"credentials='{credential_id}'"
-        )
-
-        with get_session_with_tenant(tenant_id) as db_session:
-            _run_indexing(db_session, index_attempt_id, tenant_id, callback)
-
-        logger.info(
-            f"Indexing finished{tenant_str}: "
-            f"connector='{connector_name}' "
-            f"config='{connector_config}' "
-            f"credentials='{credential_id}'"
-        )
-    except Exception as e:
-        logger.exception(
-            f"Indexing job with ID '{index_attempt_id}' for tenant {tenant_id} failed due to {e}"
-        )
+    logger.info(
+        f"Indexing entrypoint finished{tenant_str}: "
+        f"connector='{connector_name}' "
+        f"config='{connector_config}' "
+        f"credentials='{credential_id}'"
+    )
